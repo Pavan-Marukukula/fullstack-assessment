@@ -14,7 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "StackShop - Your eCommerce Destination",
-  description: "Browse our curated collection of electronics, tablets, and gaming accessories. Find the perfect product for you.",
+  description:
+    "Browse our curated collection of electronics, tablets, and gaming accessories. Find the perfect product for you.",
 };
 
 export default function RootLayout({

@@ -1,13 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
 
 interface Product {
   stacklineSku: string;
@@ -19,13 +18,22 @@ interface Product {
   retailerSku: string;
 }
 
-function ProductContent() {
-  const searchParams = useSearchParams();
-  const sku = searchParams.get('sku');
+interface ProductPageProps {
+  params: Promise<{ sku: string }>;
+}
+
+export default function ProductPage({ params }: ProductPageProps) {
+  const [sku, setSku] = useState<string>("");
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    params.then((resolvedParams) => {
+      setSku(resolvedParams.sku);
+    });
+  }, [params]);
 
   useEffect(() => {
     if (sku) {
@@ -35,9 +43,9 @@ function ProductContent() {
         .then((res) => {
           if (!res.ok) {
             if (res.status === 404) {
-              throw new Error('Product not found');
+              throw new Error("Product not found");
             }
-            throw new Error('Failed to fetch product');
+            throw new Error("Failed to fetch product");
           }
           return res.json();
         })
@@ -46,13 +54,10 @@ function ProductContent() {
           setLoading(false);
         })
         .catch((err) => {
-          console.error('Error fetching product:', err);
-          setError(err.message || 'Failed to load product');
+          console.error("Error fetching product:", err);
+          setError(err.message || "Failed to load product");
           setLoading(false);
         });
-    } else {
-      setLoading(false);
-      setError('No product ID provided');
     }
   }, [sku]);
 
@@ -67,7 +72,9 @@ function ProductContent() {
             </Button>
           </Link>
           <Card className="p-8">
-            <p className="text-center text-muted-foreground">Loading product...</p>
+            <p className="text-center text-muted-foreground">
+              Loading product...
+            </p>
           </Card>
         </div>
       </div>
@@ -85,7 +92,9 @@ function ProductContent() {
             </Button>
           </Link>
           <Card className="p-8">
-            <p className="text-center text-muted-foreground">{error || 'Product not found'}</p>
+            <p className="text-center text-muted-foreground">
+              {error || "Product not found"}
+            </p>
           </Card>
         </div>
       </div>
@@ -128,7 +137,7 @@ function ProductContent() {
                     key={idx}
                     onClick={() => setSelectedImage(idx)}
                     className={`relative h-20 border-2 rounded-lg overflow-hidden ${
-                      selectedImage === idx ? 'border-primary' : 'border-muted'
+                      selectedImage === idx ? "border-primary" : "border-muted"
                     }`}
                   >
                     <Image
@@ -151,7 +160,9 @@ function ProductContent() {
                 <Badge variant="outline">{product.subCategoryName}</Badge>
               </div>
               <h1 className="text-3xl font-bold mb-2">{product.title}</h1>
-              <p className="text-sm text-muted-foreground">SKU: {product.retailerSku}</p>
+              <p className="text-sm text-muted-foreground">
+                SKU: {product.retailerSku}
+              </p>
             </div>
 
             {product.featureBullets.length > 0 && (
@@ -173,21 +184,5 @@ function ProductContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function ProductPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8">
-          <Card className="p-8">
-            <p className="text-center text-muted-foreground">Loading...</p>
-          </Card>
-        </div>
-      </div>
-    }>
-      <ProductContent />
-    </Suspense>
   );
 }

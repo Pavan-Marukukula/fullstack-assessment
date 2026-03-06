@@ -37,7 +37,7 @@ export default function Home() {
   const [subCategories, setSubCategories] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(
-    undefined
+    undefined,
   );
   const [selectedSubCategory, setSelectedSubCategory] = useState<
     string | undefined
@@ -47,26 +47,28 @@ export default function Home() {
   useEffect(() => {
     fetch("/api/categories")
       .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch categories');
+        if (!res.ok) throw new Error("Failed to fetch categories");
         return res.json();
       })
       .then((data) => setCategories(data.categories))
       .catch((error) => {
-        console.error('Error fetching categories:', error);
+        console.error("Error fetching categories:", error);
         setCategories([]);
       });
   }, []);
 
   useEffect(() => {
     if (selectedCategory) {
-      fetch(`/api/subcategories?category=${encodeURIComponent(selectedCategory)}`)
+      fetch(
+        `/api/subcategories?category=${encodeURIComponent(selectedCategory)}`,
+      )
         .then((res) => {
-          if (!res.ok) throw new Error('Failed to fetch subcategories');
+          if (!res.ok) throw new Error("Failed to fetch subcategories");
           return res.json();
         })
         .then((data) => setSubCategories(data.subCategories))
         .catch((error) => {
-          console.error('Error fetching subcategories:', error);
+          console.error("Error fetching subcategories:", error);
           setSubCategories([]);
         });
     } else {
@@ -85,7 +87,7 @@ export default function Home() {
 
     fetch(`/api/products?${params}`)
       .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch products');
+        if (!res.ok) throw new Error("Failed to fetch products");
         return res.json();
       })
       .then((data) => {
@@ -93,7 +95,7 @@ export default function Home() {
         setLoading(false);
       })
       .catch((error) => {
-        console.error('Error fetching products:', error);
+        console.error("Error fetching products:", error);
         setProducts([]);
         setLoading(false);
       });
@@ -118,7 +120,9 @@ export default function Home() {
 
             <Select
               value={selectedCategory}
-              onValueChange={(value) => setSelectedCategory(value === "all" ? undefined : value)}
+              onValueChange={(value) =>
+                setSelectedCategory(value === "all" ? undefined : value)
+              }
             >
               <SelectTrigger className="w-full md:w-50">
                 <SelectValue placeholder="All Categories" />
@@ -188,7 +192,7 @@ export default function Home() {
               {products.map((product) => (
                 <Link
                   key={product.stacklineSku}
-                  href={`/product?sku=${encodeURIComponent(product.stacklineSku)}`}
+                  href={`/product/${encodeURIComponent(product.stacklineSku)}`}
                 >
                   <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
                     <CardHeader className="p-0">
