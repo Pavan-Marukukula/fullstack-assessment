@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,24 +19,44 @@ interface Product {
   retailerSku: string;
 }
 
-export default function ProductPage() {
+function ProductContent() {
   const searchParams = useSearchParams();
-  const productParam = searchParams.get('product');
+  const sku = searchParams.get('sku');
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (productParam) {
-      try {
-        const parsedProduct = JSON.parse(productParam);
-        setProduct(parsedProduct);
-      } catch (error) {
-        console.error('Failed to parse product data:', error);
-      }
+    if (sku) {
+      setLoading(true);
+      setError(null);
+      fetch(`/api/products/${encodeURIComponent(sku)}`)
+        .then((res) => {
+          if (!res.ok) {
+            if (res.status === 404) {
+              throw new Error('Product not found');
+            }
+            throw new Error('Failed to fetch product');
+          }
+          return res.json();
+        })
+        .then((data) => {
+          setProduct(data);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error('Error fetching product:', err);
+          setError(err.message || 'Failed to load product');
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+      setError('No product ID provided');
     }
-  }, [productParam]);
+  }, [sku]);
 
-  if (!product) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
@@ -47,7 +67,25 @@ export default function ProductPage() {
             </Button>
           </Link>
           <Card className="p-8">
-            <p className="text-center text-muted-foreground">Product not found</p>
+            <p className="text-center text-muted-foreground">Loading product...</p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <Link href="/">
+            <Button variant="ghost" className="mb-4">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Products
+            </Button>
+          </Link>
+          <Card className="p-8">
+            <p className="text-center text-muted-foreground">{error || 'Product not found'}</p>
           </Card>
         </div>
       </div>
@@ -123,7 +161,7 @@ export default function ProductPage() {
                   <ul className="space-y-2">
                     {product.featureBullets.map((feature, idx) => (
                       <li key={idx} className="flex items-start">
-                        <span className="mr-2 mt-1 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+                        <span className="mr-2 mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
                         <span className="text-sm">{feature}</span>
                       </li>
                     ))}
@@ -135,5 +173,21 @@ export default function ProductPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ProductPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <Card className="p-8">
+            <p className="text-center text-muted-foreground">Loading...</p>
+          </Card>
+        </div>
+      </div>
+    }>
+      <ProductContent />
+    </Suspense>
   );
 }

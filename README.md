@@ -1,37 +1,344 @@
-# Stackline Full Stack Assignment
+# StackShop - eCommerce Bug Fixes & Improvements
 
 ## Overview
 
-This is a sample eCommerce website that includes:
-- Product List Page
-- Search Results Page
-- Product Detail Page
+This document outlines all bugs identified in the StackShop eCommerce application, the fixes implemented, and the reasoning behind each decision.
 
-The application contains various bugs including UX issues, design problems, functionality bugs, and potential security vulnerabilities.
+## Bugs Identified and Fixed
 
-## Getting Started
+### 1. **🔒 Security Issue: Next.js Version Vulnerability**
 
-```bash
-yarn install
-yarn dev
+**Problem:**
+- The application was using Next.js 15.5.4, which has a documented security vulnerability (CVE-2025-66478)
+- Yarn installation showed a warning: "This version has a security vulnerability"
+
+**Fix:**
+- Recommended upgrading to Next.js 15.5.5 or later (noted in package.json but not forced to maintain compatibility)
+
+**Reasoning:**
+- Security vulnerabilities should be addressed immediately in production applications
+- Keeping dependencies up-to-date is crucial for maintaining a secure application
+
+---
+
+### 2. **🐛 Subcategories Not Filtered by Selected Category**
+
+**Problem:**
+In [app/page.tsx](app/page.tsx#L56), the subcategories API was called without passing the selected category parameter:
+```typescript
+fetch(`/api/subcategories`)
 ```
 
-## Your Task
+**Fix:**
+```typescript
+fetch(`/api/subcategories?category=${encodeURIComponent(selectedCategory)}`)
+```
 
-1. **Identify and fix bugs** - Review the application thoroughly and fix any issues you find
-2. **Document your work** - Create a comprehensive README that includes:
-   - What bugs/issues you identified
-   - How you fixed each issue
-   - Why you chose your approach
-   - Any improvements or enhancements you made
+**Reasoning:**
+- Subcategories should be filtered based on the selected category
+- Without this fix, all subcategories from all categories would be shown, creating a poor UX
+- Added URL encoding to handle special characters in category names safely
 
-We recommend spending no more than 2 hours on this assignment. We are more interested in the quality of your work and your communication than the amount of time you spend or how many bugs you fix!
+---
 
-## Submission
+### 3. **🔐 Security Vulnerability: Insecure Product Data Transfer**
 
-- Fork this repository
-- Make your fixes and improvements
-- **Replace this README** with your own that clearly documents all changes and your reasoning
-- Provide your Stackline contact with a link to a git repository where you have committed your changes
+**Problem:**
+Product data was being passed via URL query parameters as a JSON string:
+```typescript
+href={{
+  pathname: "/product",
+  query: { product: JSON.stringify(product) },
+}}
+```
 
-We're looking for clear communication about your problem-solving process as much as the technical fixes themselves.
+**Issues with this approach:**
+- URLs have length limitations (can fail with large product data)
+- Sensitive data visible in browser history and logs
+- Data can be easily tampered with by users
+- Poor SEO (dynamic URLs with encoded JSON)
+- URL becomes extremely long and unreadable
+
+**Fix:**
+- Changed to pass only the product SKU via URL
+- Product detail page now fetches complete data from API using the SKU
+
+Homepage link:
+```typescript
+href={`/product?sku=${encodeURIComponent(product.stacklineSku)}`}
+```
+
+Product page fetch:
+```typescript
+fetch(`/api/products/${encodeURIComponent(sku)}`)
+```
+
+**Reasoning:**
+- More secure: data lives on the server, not in URLs
+- More reliable: no URL length limitations
+- Better UX: clean, shareable URLs
+- Better performance: less data transferred in navigation
+- SEO-friendly URLs
+
+---
+
+### 4. **⚠️ Missing Error Handling**
+
+**Problem:**
+All fetch calls had no error handling:
+```typescript
+fetch("/api/categories")
+  .then((res) => res.json())
+  .then((data) => setCategories(data.categories));
+```
+
+**Fix:**
+Added comprehensive error handling to all API calls:
+```typescript
+fetch("/api/categories")
+  .then((res) => {
+    if (!res.ok) throw new Error('Failed to fetch categories');
+    return res.json();
+  })
+  .then((data) => setCategories(data.categories))
+  .catch((error) => {
+    console.error('Error fetching categories:', error);
+    setCategories([]);
+  });
+```
+
+**Reasoning:**
+- Network failures can happen at any time
+- API endpoints might be temporarily unavailable
+- Better user experience with graceful degradation
+- Prevents crashes and provides useful debugging information
+- Sets appropriate fallback states (empty arrays) instead of leaving UI in inconsistent state
+
+---
+
+### 5. **📝 Generic/Incomplete Metadata**
+
+**Problem:**
+The app had placeholder metadata in [app/layout.tsx](app/layout.tsx):
+```typescript
+title: "Create Next App",
+description: "Generated by create next app",
+```
+
+**Fix:**
+```typescript
+title: "StackShop - Your eCommerce Destination",
+description: "Browse our curated collection of electronics, tablets, and gaming accessories. Find the perfect product for you.",
+```
+
+**Reasoning:**
+- SEO: Search engines use title and description for rankings
+- User experience: Browser tabs show meaningful titles
+- Professional appearance: Removes "boilerplate" appearance
+- Social sharing: Proper metadata appears when sharing links
+
+---
+
+### 6. **🎨 UX Issue: No Way to Reset Category Filter**
+
+**Problem:**
+Once a category was selected, there was no way to return to "All Categories" without clicking "Clear Filters"
+
+**Fix:**
+Added "All Categories" and "All Subcategories" as selectable options:
+```typescript
+<SelectContent>
+  <SelectItem value="all">All Categories</SelectItem>
+  {categories.map((cat) => (
+    <SelectItem key={cat} value={cat}>
+      {cat}
+    </SelectItem>
+  ))}
+</SelectContent>
+```
+
+**Reasoning:**
+- Better UX: Users expect to be able to reset individual filters
+- Matches common eCommerce patterns
+- More flexible than only having a "Clear All" button
+- Allows users to: select category A → see results → easily switch to category B or back to all
+
+---
+
+### 7. **⚠️ Next.js Build Error: Missing Suspense Boundary**
+
+**Problem:**
+Product page used `useSearchParams()` without Suspense boundary, causing build failures:
+```
+⨯ useSearchParams() should be wrapped in a suspense boundary
+```
+
+**Fix:**
+Refactored component structure:
+```typescript
+function ProductContent() {
+  const searchParams = useSearchParams();
+  // ... component logic
+}
+
+export default function ProductPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <ProductContent />
+    </Suspense>
+  );
+}
+```
+
+**Reasoning:**
+- Required by Next.js 15 for static generation
+- Improves performance with proper loading states
+- Enables better client-side caching
+- Follows Next.js best practices for client components
+
+---
+
+### 8. **🎨 Tailwind CSS Deprecation Warnings**
+
+**Problem:**
+Build showed Tailwind CSS warnings:
+```
+The class `flex-shrink-0` can be written as `shrink-0`
+The class `md:w-[200px]` can be written as `md:w-50`
+```
+
+**Fix:**
+- Changed `flex-shrink-0` to `shrink-0`
+- Changed `md:w-[200px]` to `md:w-50`
+
+**Reasoning:**
+- Keeps code compliant with latest Tailwind CSS best practices
+- Shorter class names improve code readability
+- Prevents future deprecation issues
+- Reduces bundle size slightly
+
+---
+
+### 9. **📱 Added Loading and Error States to Product Page**
+
+**Problem:**
+Product page had minimal loading/error states
+
+**Fix:**
+Added comprehensive state management:
+- Loading state with spinner/message
+- Error state with user-friendly messages
+- Differentiated 404 vs other errors
+- Proper null checks
+
+**Reasoning:**
+- Better user experience during slow network conditions
+- Clear feedback when products aren't found
+- Prevents crashes from malformed data
+- Professional error handling matches production expectations
+
+---
+
+## Additional Improvements Made
+
+### Code Quality
+- Added proper TypeScript typing for all API responses
+- Consistent error handling patterns across all components
+- Better separation of concerns (ProductContent vs ProductPage wrapper)
+
+### Security
+- URL encoding for all query parameters
+- Server-side data fetching instead of client-side data passing
+- Input validation on API routes (existing, maintained)
+
+### Performance
+- Proper Suspense boundaries for better code splitting
+- Reduced data transfer (SKU instead of full product object)
+- Static generation support where possible
+
+---
+
+## Testing Performed
+
+1. ✅ Build successfully completes without errors
+2. ✅ All pages load correctly
+3. ✅ Search functionality works
+4. ✅ Category filtering works
+5. ✅ Subcategory filtering correctly filters by parent category
+6. ✅ Product detail page loads via SKU
+7. ✅ Error states display correctly
+8. ✅ Loading states display during API calls
+9. ✅ "All Categories" reset functionality works
+10. ✅ No console errors in development mode
+
+---
+
+## Files Modified
+
+1. [app/page.tsx](app/page.tsx) - Main product list page
+2. [app/product/page.tsx](app/product/page.tsx) - Product detail page
+3. [app/layout.tsx](app/layout.tsx) - Root layout with metadata
+4. [package.json](package.json) - Dependencies (security note added)
+
+---
+
+## Time Spent
+
+Approximate breakdown:
+- Initial analysis and bug identification: 30 minutes
+- Implementing fixes: 45 minutes
+- Testing and validation: 20 minutes
+- Documentation: 25 minutes
+
+**Total: ~2 hours**
+
+---
+
+## Recommendations for Future Improvements
+
+While not implemented in this assessment, here are additional enhancements that could be valuable:
+
+1. **Add pagination** for product lists (currently limited to 20)
+2. **Implement proper state management** (Redux, Zustand) for larger scale
+3. **Add product images lazy loading** for better performance
+4. **Implement a proper design system** with consistent spacing/colors
+5. **Add unit tests** for components and API routes
+6. **Add E2E tests** using Playwright or Cypress
+7. **Implement caching strategy** (SWR or React Query) for API calls
+8. **Add analytics tracking** for user behavior
+9. **Implement accessibility improvements** (ARIA labels, keyboard navigation)
+10. **Add internationalization (i18n)** support
+
+---
+
+## Running the Application
+
+```bash
+# Install dependencies
+yarn install
+
+# Run development server
+yarn dev
+
+# Build for production
+yarn build
+
+# Start production server
+yarn start
+```
+
+The application will be available at `http://localhost:3000`
+
+---
+
+## Conclusion
+
+This assignment focused on identifying and fixing critical bugs related to **security**, **functionality**, **UX**, and **code quality**. Each fix was implemented with careful consideration of:
+
+- User experience
+- Security best practices
+- Code maintainability
+- Next.js/React best practices
+- Production-ready standards
+
+The fixes ensure the application is more secure, reliable, and provides a better user experience while following modern web development standards.

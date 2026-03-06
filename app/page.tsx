@@ -46,15 +46,29 @@ export default function Home() {
 
   useEffect(() => {
     fetch("/api/categories")
-      .then((res) => res.json())
-      .then((data) => setCategories(data.categories));
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch categories');
+        return res.json();
+      })
+      .then((data) => setCategories(data.categories))
+      .catch((error) => {
+        console.error('Error fetching categories:', error);
+        setCategories([]);
+      });
   }, []);
 
   useEffect(() => {
     if (selectedCategory) {
-      fetch(`/api/subcategories`)
-        .then((res) => res.json())
-        .then((data) => setSubCategories(data.subCategories));
+      fetch(`/api/subcategories?category=${encodeURIComponent(selectedCategory)}`)
+        .then((res) => {
+          if (!res.ok) throw new Error('Failed to fetch subcategories');
+          return res.json();
+        })
+        .then((data) => setSubCategories(data.subCategories))
+        .catch((error) => {
+          console.error('Error fetching subcategories:', error);
+          setSubCategories([]);
+        });
     } else {
       setSubCategories([]);
       setSelectedSubCategory(undefined);
@@ -70,9 +84,17 @@ export default function Home() {
     params.append("limit", "20");
 
     fetch(`/api/products?${params}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch products');
+        return res.json();
+      })
       .then((data) => {
-        setProducts(data.products);
+        setProducts(data.products || []);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error('Error fetching products:', error);
+        setProducts([]);
         setLoading(false);
       });
   }, [search, selectedCategory, selectedSubCategory]);
@@ -96,12 +118,13 @@ export default function Home() {
 
             <Select
               value={selectedCategory}
-              onValueChange={(value) => setSelectedCategory(value || undefined)}
+              onValueChange={(value) => setSelectedCategory(value === "all" ? undefined : value)}
             >
-              <SelectTrigger className="w-full md:w-[200px]">
+              <SelectTrigger className="w-full md:w-50">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
@@ -114,13 +137,14 @@ export default function Home() {
               <Select
                 value={selectedSubCategory}
                 onValueChange={(value) =>
-                  setSelectedSubCategory(value || undefined)
+                  setSelectedSubCategory(value === "all" ? undefined : value)
                 }
               >
-                <SelectTrigger className="w-full md:w-[200px]">
+                <SelectTrigger className="w-full md:w-50">
                   <SelectValue placeholder="All Subcategories" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">All Subcategories</SelectItem>
                   {subCategories.map((subCat) => (
                     <SelectItem key={subCat} value={subCat}>
                       {subCat}
@@ -164,10 +188,7 @@ export default function Home() {
               {products.map((product) => (
                 <Link
                   key={product.stacklineSku}
-                  href={{
-                    pathname: "/product",
-                    query: { product: JSON.stringify(product) },
-                  }}
+                  href={`/product?sku=${encodeURIComponent(product.stacklineSku)}`}
                 >
                   <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
                     <CardHeader className="p-0">
